@@ -8,19 +8,22 @@
   export let link = "";
   export let playerX;
   export let playerY;
-
-  const playerSize = 0.018 * window.innerWidth;
-  const poiSize = 0.1 * window.innerWidth;
-  const imgSize = 0.053 * window.innerWidth;
+  export let poiSize;
+  export let playerSize;
 
   let enterFrame = 0;
   let enterTimer;
+
   const enterFrames = 2;
   const enterFrameWratio = 0.47;
   const enterFrameHratio = 0.18;
+  const enterAnimSpeed = 500;
+  const imgSize = 0.053 * window.innerWidth;
+
   $: enterFrameW = poiSize * enterFrameWratio;
   $: enterFrameH = poiSize * enterFrameHratio;
-  const enterAnimSpeed = 500;
+  $: if (isNear) startEnterAnim();
+  $: if (!isNear) stopEnterAnim();
 
   $: isNear =
     playerX < x + poiSize &&
@@ -39,9 +42,6 @@
     enterTimer = null;
     enterFrame = 0;
   }
-
-  $: if (isNear) startEnterAnim();
-  $: if (!isNear) stopEnterAnim();
 
   function interact() {
     if (link) window.open(link, "_blank");

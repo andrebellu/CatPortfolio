@@ -1,14 +1,19 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, createEventDispatcher } from "svelte";
+  const dispatch = createEventDispatcher();
 
   const FRAME_WIDTH = 32;
   const FRAME_HEIGHT = 32;
-  const MOVE_SPEED = 150;
+  const MOVE_SPEED = 200;
   const FRAMES_PER_ANIM = 4;
-  const FRAME_DURATION = 150;
+  const IDLE_FRAME_DURATION = 700; // ms per frame idle
+  const WALK_FRAME_DURATION = 150; // ms per frame walk
 
   export let x = 0;
   export let y = 0;
+  export let debug = false;
+  export let size = 96;
+
   let direction = "down";
   let playerEl;
   let keysPressed = new Set();
@@ -43,23 +48,26 @@
   function updateFrame(dt) {
     frameTimer += dt;
 
-    if (isMoving) {
-      if (frameTimer >= FRAME_DURATION) {
-        frameTimer = 0;
-        currentFrame = (currentFrame + 1) % FRAMES_PER_ANIM;
-      }
-    } else {
-      currentFrame = 0;
-    }
-
-    if (!playerEl) return;
+    // scegli animazione
     const anim = isMoving
       ? walkAnimations[direction]
       : idleAnimations[direction];
+    const frameDuration = isMoving ? WALK_FRAME_DURATION : IDLE_FRAME_DURATION;
+
+    // avanza frame se è passato abbastanza tempo
+    if (frameTimer >= frameDuration) {
+      frameTimer = 0;
+      currentFrame = (currentFrame + 1) % FRAMES_PER_ANIM;
+    }
+
+    // calcola indice frame
     const frameIndex = anim.start + currentFrame;
 
-    playerEl.style.backgroundPositionX = -(frameIndex * FRAME_WIDTH) + "px";
-    playerEl.style.backgroundPositionY = -(anim.row * FRAME_HEIGHT) + "px";
+    // aggiorna posizione sprite
+    if (playerEl) {
+      playerEl.style.backgroundPositionX = -(frameIndex * FRAME_WIDTH) + "px";
+      playerEl.style.backgroundPositionY = -(anim.row * FRAME_HEIGHT) + "px";
+    }
   }
 
   onMount(() => {
@@ -97,8 +105,17 @@
         else if (dx < 0 && dy < 0) direction = "upLeft";
       }
 
-      x += dx * (dt / 1000);
-      y += dy * (dt / 1000);
+      const newX = x + dx * (dt / 1000);
+      const newY = y + dy * (dt / 1000);
+
+      let cancelled = false;
+      const cancel = () => (cancelled = true);
+      dispatch("beforeMove", { newX, newY, cancel });
+
+      if (!cancelled) {
+        x = newX;
+        y = newY;
+      }
 
       updateFrame(dt);
 
@@ -130,14 +147,39 @@
 
     window.addEventListener("keydown", (e) => handleKey(e, true));
     window.addEventListener("keyup", (e) => handleKey(e, false));
+
+    // Touch movement support
+    let lastTouchDir = { dx: 0, dy: 0 };
+    function handleTouchMovePlayer(e) {
+      const { dx, dy } = e.detail;
+      ["arrowup", "arrowdown", "arrowleft", "arrowright"].forEach((k) =>
+        keysPressed.delete(k),
+      );
+      if (dy < 0) keysPressed.add("arrowup");
+      if (dy > 0) keysPressed.add("arrowdown");
+      if (dx < 0) keysPressed.add("arrowleft");
+      if (dx > 0) keysPressed.add("arrowright");
+      lastTouchDir = { dx, dy };
+    }
+    window.addEventListener("touchmoveplayer", handleTouchMovePlayer);
   });
 </script>
 
 <div
   bind:this={playerEl}
   class="absolute w-8 h-8 bg-no-repeat image-rendering-pixelated"
-  style="background-image: url('src/assets/walk.png');"
-></div>
+  style="background-image: url('src/assets/walk.png'); {debug
+    ? 'outline: 2px solid red;'
+    : ''}"
+>
+  {#if debug}
+    <div
+      class="absolute -top-6 left-0 text-xs bg-white px-1 border border-gray-300"
+    >
+      {Math.round(x)}, {Math.round(y)}
+    </div>
+  {/if}
+</div>
 
 <style>
   .image-rendering-pixelated {
