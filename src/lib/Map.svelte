@@ -34,7 +34,7 @@
   // dimensioni dinamiche
   $: playerSize = 0.018 * mapWidth;
   $: poiSize = 0.1 * mapWidth;
-  const factor = 0.53; // 👈 unico posto dove regoli la hitbox
+  const factor = 0.53;
 
   // player al centro
   let playerX = 0;
