@@ -4,9 +4,10 @@
   import { POIS } from "./pois.js";
   import { onMount } from "svelte";
 
+  export let showDebug = false;
+
   let mapWidth = 0;
   let mapHeight = 0;
-  let showDebug = false;
   let collisionDebug = [];
 
   const readSize = () => {
@@ -31,18 +32,15 @@
     };
   });
 
-  // dimensioni dinamiche
   $: playerSize = 0.018 * mapWidth;
   $: poiSize = 0.1 * mapWidth;
   const factor = 0.53;
 
-  // player al centro
   let playerX = 0;
   let playerY = 0;
   $: playerX = mapWidth / 2 - playerSize / 2;
   $: playerY = mapHeight / 2 - playerSize / 2;
 
-  // pois
   $: pois = POIS.map((poi) => ({
     ...poi,
     x: poi.relX * mapWidth,
@@ -84,7 +82,7 @@
   }
 </script>
 
-<div class="fixed inset-0 w-full h-full bg-green-200 overflow-hidden">
+<div class="fixed w-full h-full overflow-hidden">
   <Player
     bind:x={playerX}
     bind:y={playerY}

@@ -7,7 +7,7 @@ export const POIS = [
         link: "/computer",
         hitbox: {
             w: 0.5,
-            h: 0.5,
+            h: 0.7,
             offsetY: -0.25
         }
     },

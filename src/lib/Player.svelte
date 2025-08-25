@@ -48,22 +48,18 @@
   function updateFrame(dt) {
     frameTimer += dt;
 
-    // scegli animazione
     const anim = isMoving
       ? walkAnimations[direction]
       : idleAnimations[direction];
     const frameDuration = isMoving ? WALK_FRAME_DURATION : IDLE_FRAME_DURATION;
 
-    // avanza frame se è passato abbastanza tempo
     if (frameTimer >= frameDuration) {
       frameTimer = 0;
       currentFrame = (currentFrame + 1) % FRAMES_PER_ANIM;
     }
 
-    // calcola indice frame
     const frameIndex = anim.start + currentFrame;
 
-    // aggiorna posizione sprite
     if (playerEl) {
       playerEl.style.backgroundPositionX = -(frameIndex * FRAME_WIDTH) + "px";
       playerEl.style.backgroundPositionY = -(anim.row * FRAME_HEIGHT) + "px";
