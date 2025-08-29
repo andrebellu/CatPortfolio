@@ -1,75 +1,88 @@
 <script>
-  import { onMount, onDestroy } from "svelte";
+    import { onMount, onDestroy } from "svelte";
 
-  export let name;
-  export let x;
-  export let y;
-  export let icon;
-  export let link = "";
-  export let playerX;
-  export let playerY;
-  export let poiSize;
-  export let playerSize;
+    export let poi;
+    export let playerX;
+    export let playerY;
+    export let poiSize;
+    export let playerSize;
 
-  let enterFrame = 0;
-  let enterTimer;
+    let enterFrame = 0;
 
-  const enterFrames = 2;
-  const enterFrameWratio = 0.47;
-  const enterFrameHratio = 0.18;
-  const enterAnimSpeed = 500;
-  const imgSize = 0.053 * window.innerWidth;
+    let enterTimer;
 
-  $: enterFrameW = poiSize * enterFrameWratio;
-  $: enterFrameH = poiSize * enterFrameHratio;
-  $: if (isNear) startEnterAnim();
-  $: if (!isNear) stopEnterAnim();
+    const enterFrames = 2;
+    const enterFrameWratio = 0.8;
+    const enterFrameHratio = 0.3;
+    const enterAnimSpeed = 500;
+    const imgSize = 0.053 * window.innerWidth;
 
-  $: isNear =
-    playerX < x + poiSize &&
-    playerX + playerSize > x &&
-    playerY < y + poiSize &&
-    playerY + playerSize > y;
+    $: enterFrameW = poiSize * enterFrameWratio;
 
-  function startEnterAnim() {
-    if (enterTimer) return;
-    enterTimer = setInterval(() => {
-      enterFrame = (enterFrame + 1) % enterFrames;
-    }, enterAnimSpeed);
-  }
-  function stopEnterAnim() {
-    clearInterval(enterTimer);
-    enterTimer = null;
-    enterFrame = 0;
-  }
+    $: enterFrameH = poiSize * enterFrameHratio;
 
-  function interact() {
-    if (link) window.open(link, "_blank");
-    else alert(`Hai interagito con ${name}!`);
-  }
+    $: if (isNear) startEnterAnim();
 
-  function handleKey(e) {
-    if (isNear && e.key === "Enter") interact();
-  }
+    $: if (!isNear) stopEnterAnim();
 
-  onMount(() => window.addEventListener("keydown", handleKey));
-  onDestroy(() => window.removeEventListener("keydown", handleKey));
+    $: isNear =
+        playerX < poi.x + poiSize &&
+        playerX + playerSize > poi.x &&
+        playerY < poi.y + poiSize &&
+        playerY + playerSize > poi.y;
+
+    function startEnterAnim() {
+        if (enterTimer) return;
+
+        enterTimer = setInterval(() => {
+            enterFrame = (enterFrame + 1) % enterFrames;
+        }, enterAnimSpeed);
+    }
+
+    function stopEnterAnim() {
+        clearInterval(enterTimer);
+
+        enterTimer = null;
+
+        enterFrame = 0;
+    }
+
+    function interact() {
+        if (poi.link) window.open(poi.link, "_blank");
+        else alert(`Hai interagito con ${poi.name}!`);
+    }
+
+    function handleKey(e) {
+        if (isNear && e.key === "Enter") interact();
+    }
+
+    onMount(() => window.addEventListener("keydown", handleKey));
+
+    onDestroy(() => window.removeEventListener("keydown", handleKey));
+
+    $: distance = Math.sqrt(
+        Math.pow(poi.x - playerX, 2) + Math.pow(poi.y - playerY, 2)
+    );
+
+    $: isClose = distance < 145;
 </script>
 
 <div
-  class="absolute flex flex-col items-center left-0 top-0"
-  style="left:{x}px; top:{y}px; width:{poiSize}px; height:{poiSize}px; min-width:72px; min-height:72px;"
+    class="absolute transition-all duration-300"
+    style="left: {poi.x - poiSize / 2}px; top: {poi.y -
+        poiSize / 2}px; width: {poiSize}px; height: {poiSize}px;"
 >
-  <img
-    src={icon}
-    alt={name}
-    class="transition-shadow duration-300 poi w-2/3 max-w-[120px] h-auto"
-    style="width:{imgSize}px; max-width:100%;"
-  />
-  {#if isNear}
-    <div
-      class="absolute left-1/2 -translate-x-1/2 -top-8 sm:-top-10 md:-top-12"
-      style="
+    <img
+        src={poi.icon}
+        alt={poi.name}
+        class="w-full h-full object-contain"
+        style="image-rendering: pixelated;"
+    />
+
+    {#if isClose}
+        <div
+            class="absolute left-1/2 -translate-x-1/2 -top-8 sm:-top-10 md:-top-12"
+            style="
         width: {enterFrameW}px;
         height: {enterFrameH}px;
         pointer-events: none;
@@ -81,12 +94,16 @@
         background-size: {enterFrameW * enterFrames}px {enterFrameH}px;
         image-rendering: pixelated;
       "
-    ></div>
-  {/if}
+        ></div>
+    {/if}
 </div>
 
-<style>
-  .poi {
-    image-rendering: pixelated;
-  }
-</style>
+{#if isClose && poi.link}
+    <a
+        href={poi.link}
+        class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-blue-500 text-white px-4 py-2 rounded-full opacity-0 hover:opacity-100 transition-opacity duration-300"
+        style="margin-top: {imgSize}px;"
+    >
+        Vai a {poi.name}
+    </a>
+{/if}

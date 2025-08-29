@@ -1,160 +1,195 @@
 <script>
-  import Player from "./Player.svelte";
-  import POI from "./POI.svelte";
-  import { POIS } from "./pois.js";
-  import { onMount } from "svelte";
+    import Player from "./Player.svelte";
+    import POI from "./POI.svelte";
+    import Debug from "./Debug.svelte";
+    import { POIS } from "./pois.js";
+    import { onMount, tick } from "svelte";
 
-  export let showDebug = false;
+    export let showDebug = false;
 
-  let mapWidth = 0;
-  let mapHeight = 0;
-  let collisionDebug = [];
+    let mapWidth = 0;
+    let mapHeight = 0;
+    let collisionDebug = [];
 
-  const readSize = () => {
-    mapWidth = window.innerWidth;
-    mapHeight = window.innerHeight;
-  };
+    $: tileSize = Math.min(mapWidth, mapHeight) / 15;
+    $: playerSize = tileSize * 1.2;
+    $: poiSize = tileSize * 1.7;
 
-  onMount(() => {
-    readSize();
-    window.addEventListener("resize", readSize);
+    let playerX = 0;
+    let playerY = 0;
 
-    const handleKey = (e) => {
-      if (e.key === "k" || e.key === "K") {
-        showDebug = !showDebug;
-      }
-    };
-    window.addEventListener("keydown", handleKey);
+    $: playerHitbox = (() => {
+        const scale = 0.7;
+        const w = playerSize * scale;
+        const h = playerSize * scale;
+        const offsetX = -playerSize * 0.28;
+        const offsetY = -playerSize * 0.18;
+        return {
+            x: playerX - w / 2 + offsetX,
+            y: playerY - h / 2 + offsetY,
+            w,
+            h,
+        };
+    })();
 
-    return () => {
-      window.removeEventListener("resize", readSize);
-      window.removeEventListener("keydown", handleKey);
-    };
-  });
-
-  $: playerSize = 0.018 * mapWidth;
-  $: poiSize = 0.1 * mapWidth;
-  const factor = 0.53;
-
-  let playerX = 0;
-  let playerY = 0;
-  $: playerX = mapWidth / 2 - playerSize / 2;
-  $: playerY = mapHeight / 2 - playerSize / 2;
-
-  $: pois = POIS.map((poi) => ({
-    ...poi,
-    x: poi.relX * mapWidth,
-    y: poi.relY * mapHeight,
-  }));
-
-  function checkCollision(newX, newY) {
-    const playerRect = { x: newX, y: newY, w: playerSize, h: playerSize };
-    let hit = false;
-
-    for (const poi of pois) {
-      const hb = poi.hitbox ?? { w: 1, h: 1, offsetY: 0 };
-
-      const actualW = poiSize * hb.w;
-      const actualH = poiSize * hb.h;
-
-      const poiRect = {
-        x: poi.x + (poiSize - actualW) / 2,
-        y: poi.y + (poiSize - actualH) / 2 + hb.offsetY * poiSize,
-        w: actualW,
-        h: actualH,
-      };
-
-      const overlaps =
-        playerRect.x < poiRect.x + poiRect.w &&
-        playerRect.x + playerRect.w > poiRect.x &&
-        playerRect.y < poiRect.y + poiRect.h &&
-        playerRect.y + playerRect.h > poiRect.y;
-
-      collisionDebug = [
-        ...collisionDebug,
-        { poi: poi.name, overlaps, ts: Date.now() },
-      ];
-
-      if (overlaps) hit = true;
+    function recenterPlayer() {
+        playerX = mapWidth / 2;
+        playerY = mapHeight / 2;
     }
 
-    return hit;
-  }
+    const readSize = async () => {
+        mapWidth = window.innerWidth;
+        mapHeight = window.innerHeight;
+        await tick();
+        recenterPlayer();
+    };
+
+    onMount(() => {
+        readSize();
+        window.addEventListener("resize", readSize);
+
+        const handleKey = (e) => {
+            if (e.key === "k" || e.key === "K") showDebug = !showDebug;
+        };
+        window.addEventListener("keydown", handleKey);
+
+        return () => {
+            window.removeEventListener("resize", readSize);
+            window.removeEventListener("keydown", handleKey);
+        };
+    });
+
+    $: pois = POIS.map((poi) => {
+        const hasRel =
+            typeof poi.relX === "number" && typeof poi.relY === "number";
+        const px = hasRel ? poi.relX * mapWidth : (poi.x ?? 0) * tileSize;
+        const py = hasRel ? poi.relY * mapHeight : (poi.y ?? 0) * tileSize;
+        return { ...poi, x: px, y: py };
+    });
+
+    function getPoiRect(poi) {
+        const hb = poi.hitbox ?? { w: 1, h: 1, offsetX: 0, offsetY: 0 };
+        const actualW = poiSize * (hb.w ?? 1);
+        const actualH = poiSize * (hb.h ?? 1);
+        const offsetX = (hb.offsetX ?? 0) * poiSize;
+        const offsetY = (hb.offsetY ?? 0) * poiSize;
+
+        return {
+            x: poi.x - actualW / 2 + offsetX,
+            y: poi.y - actualH / 2 + offsetY,
+            w: actualW,
+            h: actualH,
+        };
+    }
+
+    function rectsOverlap(a, b) {
+        return (
+            a.x < b.x + b.w &&
+            a.x + a.w > b.x &&
+            a.y < b.y + b.h &&
+            a.y + a.h > b.y
+        );
+    }
+
+    function checkCollision(newX, newY) {
+        const scale = 0.7;
+        const w = playerSize * scale;
+        const h = playerSize * scale;
+        const offsetX = -playerSize * 0.28;
+        const offsetY = -playerSize * 0.2;
+        const testRect = {
+            x: newX - w / 2 + offsetX,
+            y: newY - h / 2 + offsetY,
+            w,
+            h,
+        };
+
+        let hitPoi = null;
+        for (const poi of pois) {
+            const pr = getPoiRect(poi);
+            if (rectsOverlap(testRect, pr)) {
+                hitPoi = poi;
+                break;
+            }
+        }
+
+        collisionDebug.push({
+            poi: hitPoi ? hitPoi.name : "—",
+            overlaps: !!hitPoi,
+            ts: Date.now(),
+        });
+        if (collisionDebug.length > 10) collisionDebug.shift();
+
+        return !!hitPoi;
+    }
+
+    function handleBeforeMove(e) {
+        const { newX, newY, cancel } = e.detail;
+        if (checkCollision(newX, newY)) {
+            cancel();
+        } else {
+            playerX = newX;
+            playerY = newY;
+        }
+    }
 </script>
 
-<div class="fixed w-full h-full overflow-hidden">
-  <Player
-    bind:x={playerX}
-    bind:y={playerY}
-    on:beforeMove={(e) => {
-      const { newX, newY, cancel } = e.detail;
-      if (checkCollision(newX, newY)) cancel();
-    }}
-    debug={showDebug}
-  />
-
-  {#each pois as poi}
-    <POI
-      name={poi.name}
-      x={poi.x}
-      y={poi.y}
-      icon={poi.icon}
-      link={poi.link}
-      {playerX}
-      {playerY}
-      {poiSize}
-      {playerSize}
+<div
+    class="relative w-full h-full overflow-hidden border-2 border-black bg-center bg-cover"
+    style="background-image: url('src/assets/mappa.png')"
+>
+    <Player
+        x={playerX}
+        y={playerY}
+        size={playerSize}
+        on:beforeMove={handleBeforeMove}
+        debug={showDebug}
     />
-  {/each}
 
-  {#if showDebug}
-    <!-- Player hitbox -->
-    <div
-      class="absolute border-2 border-red-500 bg-red-200 opacity-50 pointer-events-none"
-      style="left:{playerX}px; top:{playerY}px; width:{playerSize}px; height:{playerSize}px;"
-    ></div>
-
-    <!-- POI hitbox -->
     {#each pois as poi}
-      <div
-        class="absolute border-2 border-blue-500 bg-blue-200 opacity-40 pointer-events-none"
-        style="
-        left:{poi.x + (poiSize - poiSize * (poi.hitbox?.w ?? 1)) / 2}px;
-        top:{poi.y +
-          (poiSize - poiSize * (poi.hitbox?.h ?? 1)) / 2 +
-          (poi.hitbox?.offsetY ?? 0) * poiSize}px;
-        width:{poiSize * (poi.hitbox?.w ?? 1)}px;
-        height:{poiSize * (poi.hitbox?.h ?? 1)}px;
-      "
-      >
-        <div
-          class="absolute -top-6 left-0 text-xs bg-white px-1 border border-gray-300"
-        >
-          {poi.name}
-        </div>
-      </div>
+        <POI {poi} {playerX} {playerY} {poiSize} {playerSize} />
     {/each}
 
-    <!-- Debug info -->
-    <div
-      class="absolute top-4 left-4 bg-black bg-opacity-80 text-white p-4 rounded text-xs max-w-md z-50"
-    >
-      <h3 class="font-bold mb-2">DEBUG INFO (Premi K per nascondere)</h3>
-      <div>Player: {Math.round(playerX)}, {Math.round(playerY)}</div>
-      <div>Player Size: {playerSize.toFixed(1)}px</div>
-      <div>POI Size: {poiSize.toFixed(1)}px (factor {factor})</div>
-
-      <h4 class="font-bold mt-2 mb-1">Ultime collisioni:</h4>
-      {#each collisionDebug.slice(-5).reverse() as debug}
+    {#if showDebug}
         <div
-          class="mt-1 p-1 rounded {debug.overlaps
-            ? 'bg-red-600'
-            : 'bg-green-600'}"
-        >
-          {new Date(debug.ts).toLocaleTimeString()} → {debug.poi}:{" "}
-          {debug.overlaps ? "COLLISIONE" : "OK"}
-        </div>
-      {/each}
-    </div>
-  {/if}
+            class="absolute border-2 border-red-500 bg-red-200 opacity-50 pointer-events-none"
+            style="left:{playerHitbox.x}px; top:{playerHitbox.y}px; width:{playerHitbox.w}px; height:{playerHitbox.h}px;"
+        ></div>
+
+        <div
+            class="absolute pointer-events-none bg-yellow-400 z-50 rounded-sm"
+            style="left:{playerX - 4}px; top:{playerY -
+                4}px; width:8px; height:8px;"
+        ></div>
+
+        {#each pois as poi}
+            {@const pr = getPoiRect(poi)}
+            <div
+                class="absolute border-2 border-blue-500 bg-blue-200 opacity-40 pointer-events-none"
+                style="left:{pr.x}px; top:{pr.y}px; width:{pr.w}px; height:{pr.h}px;"
+            >
+                <div
+                    class="absolute -top-6 left-0 text-xs bg-white px-1 border border-gray-300"
+                >
+                    {poi.name}
+                </div>
+            </div>
+
+            <div
+                class="absolute pointer-events-none bg-purple-600 z-40 rounded-sm"
+                style="left:{poi.x - 4}px; top:{poi.y -
+                    4}px; width:8px; height:8px;"
+            ></div>
+        {/each}
+
+        <Debug
+            {playerX}
+            {playerY}
+            {playerSize}
+            {poiSize}
+            {tileSize}
+            {collisionDebug}
+            on:close={() => (showDebug = false)}
+        />
+    {/if}
 </div>

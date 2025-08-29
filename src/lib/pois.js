@@ -1,26 +1,15 @@
 export const POIS = [
     {
         name: "Computer",
-        relX: 0.3,
-        relY: 0.5,
+        x: 7,
+        y: 3,
         icon: "src/assets/pc.png",
         link: "/computer",
+        desc: "Programming Skills",
         hitbox: {
-            w: 0.5,
-            h: 0.7,
-            offsetY: -0.25
-        }
-    },
-    {
-        name: "Libreria",
-        relX: 0.6,
-        relY: 0.5,
-        icon: "shelf.png",
-        link: "/shelf",
-        hitbox: {
-            w: 0.9,
-            h: 0.9,
-            offsetY: 0.0
+            w: 1,
+            h: 1,
+            offsetY: 0
         }
     },
 ];
